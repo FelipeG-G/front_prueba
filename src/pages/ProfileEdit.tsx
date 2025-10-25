@@ -66,7 +66,7 @@ const ProfileEdit = () => {
       }
 
       const response = await axios.get(
-        "https://back-pruebav1.onrender.com//api/v1/users/profile",
+        "https://back-pruebav1.onrender.com/api/v1/users/profile",
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -155,7 +155,7 @@ const ProfileEdit = () => {
       }
 
       await axios.put(
-        "https://back-pruebav1.onrender.com//api/v1/users/profile",
+        "https://back-pruebav1.onrender.com/api/v1/users/profile",
         updateData,
         {
           headers: {
@@ -210,7 +210,7 @@ const ProfileEdit = () => {
       }
 
       await axios.delete(
-        "https://back-pruebav1.onrender.com//api/v1/users/profile",
+        "https://back-pruebav1.onrender.com/api/v1/users/profile",
         {
           headers: {
             Authorization: `Bearer ${token}`,
