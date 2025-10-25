@@ -86,59 +86,83 @@ const Movies = () => {
   }, [searchTerm, selectedGenre, movies, showFavorites]);
 
   const fetchMovies = async (query: string = "cinema movie") => {
-    setLoading(true);
-    setError("");
+  setLoading(true);
+  setError("");
 
-    const PEXELS_API_KEY = import.meta.env.VITE_PEXELS_API_KEY || "pjVKkdHUWxAeb3NyKhEXk7j6kP1kv85b67dbekeZaWW2MYoLIuBZuCZN";
-    const url = `https://api.pexels.com/videos/search?query=${encodeURIComponent(query)}&per_page=15`;
+  const PEXELS_API_KEY =
+    import.meta.env.VITE_PEXELS_API_KEY ||
+    "pjVKkdHUWxAeb3NyKhEXk7j6kP1kv85b67dbekeZaWW2MYoLIuBZuCZN";
 
-    try {
-      const response = await fetch(url, {
-        headers: {
-          Authorization: PEXELS_API_KEY,
-        },
+  const url = `https://api.pexels.com/videos/search?query=${encodeURIComponent(query)}&per_page=15`;
+
+  try {
+    const response = await fetch(url, {
+      headers: {
+        Authorization: PEXELS_API_KEY,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`Error: ${response.status}`);
+    }
+
+    const data = await response.json();
+
+    if (data.videos && data.videos.length > 0) {
+      const transformedMovies: Movie[] = data.videos.map((video: PexelsVideo, index: number) => {
+        const hdVideo = video.video_files.find((file) => file.quality === "hd") || video.video_files[0];
+        const durationMinutes = Math.floor(video.duration / 60);
+
+        return {
+          id: video.id,
+          title: `${query.split(" ")[0]} ${index + 1}`,
+          description: `Video creado por ${video.user.name}`,
+          year: 2024,
+          duration: `${durationMinutes} min`,
+          rating: parseFloat((4.0 + Math.random() * 1).toFixed(1)),
+          genre: getGenreFromQuery(query),
+          image: video.video_pictures[0]?.picture || video.image,
+          videoUrl: hdVideo?.link || "",
+        };
       });
 
-      if (!response.ok) {
-        throw new Error(`Error: ${response.status}`);
+      // 🔥 NUEVO BLOQUE: Guardar en la base de datos si no existe
+      for (const m of transformedMovies) {
+        try {
+          await fetch(`${import.meta.env.VITE_API_URL || "https://backend-de-peliculas.onrender.com"}/movies`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              title: m.title,
+              description: m.description,
+              genre: m.genre,
+              releaseDate: new Date(),
+              rating: m.rating,
+              duration: parseInt(m.duration),
+              director: "Desconocido",
+            }),
+          });
+        } catch (err) {
+          console.warn("Error guardando película:", m.title);
+        }
       }
 
-      const data = await response.json();
-      
-      if (data.videos && data.videos.length > 0) {
-        const transformedMovies: Movie[] = data.videos.map((video: PexelsVideo, index: number) => {
-          const hdVideo = video.video_files.find(file => file.quality === "hd") || video.video_files[0];
-          const durationMinutes = Math.floor(video.duration / 60);
-          
-          return {
-            id: video.id,
-            title: `${query.split(' ')[0]} ${index + 1}`,
-            description: `Video creado por ${video.user.name}`,
-            year: 2024,
-            duration: `${durationMinutes} min`,
-            rating: parseFloat((4.0 + Math.random() * 1).toFixed(1)),
-            genre: getGenreFromQuery(query),
-            image: video.video_pictures[0]?.picture || video.image,
-            videoUrl: hdVideo?.link || ""
-          };
-        });
-
-        setMovies(transformedMovies);
-        setFilteredMovies(transformedMovies);
-      } else {
-        setError("No se encontraron videos");
-        setMovies([]);
-        setFilteredMovies([]);
-      }
-    } catch (error: any) {
-      console.error("Error al cargar videos:", error);
-      setError("Error al cargar los videos. Intenta de nuevo.");
+      setMovies(transformedMovies);
+      setFilteredMovies(transformedMovies);
+    } else {
+      setError("No se encontraron videos");
       setMovies([]);
       setFilteredMovies([]);
-    } finally {
-      setLoading(false);
     }
-  };
+  } catch (error: any) {
+    console.error("Error al cargar videos:", error);
+    setError("Error al cargar los videos. Intenta de nuevo.");
+    setMovies([]);
+    setFilteredMovies([]);
+  } finally {
+    setLoading(false);
+  }
+};
 
   const getGenreFromQuery = (query: string): string => {
     for (const [genre, searchQuery] of Object.entries(genreQueries)) {
