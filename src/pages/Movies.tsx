@@ -129,7 +129,7 @@ const Movies = () => {
       // 🔥 NUEVO BLOQUE: Guardar en la base de datos si no existe
       for (const m of transformedMovies) {
         try {
-          await fetch(`${import.meta.env.VITE_API_URL || "https://backend-de-peliculas.onrender.com"}/movies`, {
+          await fetch(`${import.meta.env.VITE_API_URL || "https://back-pruebav1.onrender.com/"}/movies`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({

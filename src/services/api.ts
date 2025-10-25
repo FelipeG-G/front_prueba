@@ -1,4 +1,4 @@
-const API_URL = import.meta.env.VITE_API_URL || "https://backend-de-peliculas.onrender.com";
+const API_URL = import.meta.env.VITE_API_URL || "https://back-pruebav1.onrender.com";
 
 export const movieService = {
   getAll: async () => {
