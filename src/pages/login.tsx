@@ -45,7 +45,7 @@ const Home: React.FC = () => {
     setLoginMsg("Iniciando sesión...");
 
     try {
-      // Enviar la solicitud de login al backend
+      // Enviar la solicitud de login al backend.
       const response = await fetch("https://back-pruebav1.onrender.com/api/auth/login", {
         method: "POST",
         headers: {
