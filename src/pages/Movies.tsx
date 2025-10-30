@@ -73,7 +73,8 @@ const Movies = () => {
   const [selectedVideo, setSelectedVideo] = useState<string | null>(null);
   const [showDropdown, setShowDropdown] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [userName, setUserName] = useState("Usuario");
+  const [userName, setUserName] = useState("");
+  
 
   const genres = ["Todos", "Acción", "Drama", "Comedia", "Terror", "Ciencia Ficción"];
 
@@ -86,11 +87,15 @@ const Movies = () => {
     "Todos": "cinema movie",
   };
 
-  // Comprobar login
-  useEffect(() => {
+ useEffect(() => {
     const token = localStorage.getItem("token");
-    if (token) setIsLoggedIn(true);
+    if (token) {
+      setIsLoggedIn(true);
+      // Aquí podrías hacer una petición al backend para obtener el nombre del usuario
+      setUserName("Usuario"); // Placeholder
+    }
   }, []);
+
 
   // Cargar favoritos del backend
   useEffect(() => {
