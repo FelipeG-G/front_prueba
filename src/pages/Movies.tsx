@@ -1,6 +1,16 @@
 import { useState, useEffect } from "react";
 import "../styles/Movies.scss";
-import { FaStar, FaSearch, FaFilter, FaPlay, FaHeart, FaRegHeart, FaUser, FaCog, FaSignOutAlt } from "react-icons/fa";
+import {
+  FaStar,
+  FaSearch,
+  FaFilter,
+  FaPlay,
+  FaHeart,
+  FaRegHeart,
+  FaUser,
+  FaCog,
+  FaSignOutAlt,
+} from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
 
 interface PexelsVideo {
@@ -36,11 +46,25 @@ interface Movie {
   videoUrl: string;
 }
 
+interface Favorite {
+  id: string;
+  userId: string;
+  movieId?: number;
+  pexelsId?: number;
+  title: string;
+  thumbnail: string;
+}
+
 const Movies = () => {
   const navigate = useNavigate();
+  const API_URL =
+    import.meta.env.VITE_API_URL ||
+    "https://back-pruebav1.onrender.com/api/v1";
+  const userId = localStorage.getItem("userId") || "defaultUser";
+
   const [movies, setMovies] = useState<Movie[]>([]);
   const [filteredMovies, setFilteredMovies] = useState<Movie[]>([]);
-  const [favorites, setFavorites] = useState<Movie[]>([]);
+  const [favorites, setFavorites] = useState<Favorite[]>([]);
   const [showFavorites, setShowFavorites] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedGenre, setSelectedGenre] = useState("Todos");
@@ -49,7 +73,7 @@ const Movies = () => {
   const [selectedVideo, setSelectedVideo] = useState<string | null>(null);
   const [showDropdown, setShowDropdown] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [userName, setUserName] = useState("");
+  const [userName, setUserName] = useState("Usuario");
 
   const genres = ["Todos", "Acción", "Drama", "Comedia", "Terror", "Ciencia Ficción"];
 
@@ -59,150 +83,127 @@ const Movies = () => {
     "Comedia": "comedy movie",
     "Terror": "horror movie",
     "Ciencia Ficción": "sci-fi movie",
-    "Todos": "cinema movie"
+    "Todos": "cinema movie",
   };
 
-  // Verificar si el usuario está logueado
+  // Comprobar login
   useEffect(() => {
     const token = localStorage.getItem("token");
-    if (token) {
-      setIsLoggedIn(true);
-      // Aquí podrías hacer una petición al backend para obtener el nombre del usuario
-      setUserName("Usuario"); // Placeholder
-    }
+    if (token) setIsLoggedIn(true);
   }, []);
 
-  // Cargar favoritos del localStorage al iniciar
+  // Cargar favoritos del backend
   useEffect(() => {
-    const savedFavorites = localStorage.getItem("movieFavorites");
-    if (savedFavorites) {
-      setFavorites(JSON.parse(savedFavorites));
-    }
+    const loadFavorites = async () => {
+      try {
+        const res = await fetch(`${API_URL}/favorites/${userId}`);
+        const data = await res.json();
+        setFavorites(data);
+      } catch (error) {
+        console.error("Error cargando favoritos:", error);
+      }
+    };
+
+    loadFavorites();
     fetchMovies("cinema movie");
   }, []);
 
   useEffect(() => {
     filterMovies();
-  }, [searchTerm, selectedGenre, movies, showFavorites]);
+  }, [searchTerm, selectedGenre, movies, showFavorites, favorites]);
 
   const fetchMovies = async (query: string = "cinema movie") => {
-  setLoading(true);
-  setError("");
+    setLoading(true);
+    setError("");
 
-  const PEXELS_API_KEY =
-    import.meta.env.VITE_PEXELS_API_KEY ||
-    "pjVKkdHUWxAeb3NyKhEXk7j6kP1kv85b67dbekeZaWW2MYoLIuBZuCZN";
+    const PEXELS_API_KEY =
+      import.meta.env.VITE_PEXELS_API_KEY ||
+      "pjVKkdHUWxAeb3NyKhEXk7j6kP1kv85b67dbekeZaWW2MYoLIuBZuCZN";
+    const url = `https://api.pexels.com/videos/search?query=${encodeURIComponent(
+      query
+    )}&per_page=15`;
 
-  const url = `https://api.pexels.com/videos/search?query=${encodeURIComponent(query)}&per_page=15`;
-
-  try {
-    const response = await fetch(url, {
-      headers: {
-        Authorization: PEXELS_API_KEY,
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error(`Error: ${response.status}`);
-    }
-
-    const data = await response.json();
-
-    if (data.videos && data.videos.length > 0) {
-      const transformedMovies: Movie[] = data.videos.map((video: PexelsVideo, index: number) => {
-        const hdVideo = video.video_files.find((file) => file.quality === "hd") || video.video_files[0];
-        const durationMinutes = Math.floor(video.duration / 60);
-
-        return {
-          id: video.id,
-          title: `${query.split(" ")[0]} ${index + 1}`,
-          description: `Video creado por ${video.user.name}`,
-          year: 2024,
-          duration: `${durationMinutes} min`,
-          rating: parseFloat((4.0 + Math.random() * 1).toFixed(1)),
-          genre: getGenreFromQuery(query),
-          image: video.video_pictures[0]?.picture || video.image,
-          videoUrl: hdVideo?.link || "",
-        };
+    try {
+      const response = await fetch(url, {
+        headers: {
+          Authorization: PEXELS_API_KEY,
+        },
       });
 
-      // 🔥 NUEVO BLOQUE: Guardar en la base de datos si no existe
-      for (const m of transformedMovies) {
-        try {
-          await fetch(`${import.meta.env.VITE_API_URL || "https://back-pruebav1.onrender.com/"}/movies`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              title: m.title,
-              description: m.description,
-              genre: m.genre,
-              releaseDate: new Date(),
-              rating: m.rating,
-              duration: parseInt(m.duration),
-              director: "Desconocido",
-            }),
-          });
-        } catch (err) {
-          console.warn("Error guardando película:", m.title);
-        }
-      }
+      if (!response.ok) throw new Error(`Error: ${response.status}`);
 
-      setMovies(transformedMovies);
-      setFilteredMovies(transformedMovies);
-    } else {
-      setError("No se encontraron videos");
+      const data = await response.json();
+
+      if (data.videos && data.videos.length > 0) {
+        const transformedMovies: Movie[] = data.videos.map(
+          (video: PexelsVideo, index: number) => {
+            const hdVideo =
+              video.video_files.find((file) => file.quality === "hd") ||
+              video.video_files[0];
+            const durationMinutes = Math.floor(video.duration / 60);
+
+            return {
+              id: video.id,
+              title: `${query.split(" ")[0]} ${index + 1}`,
+              description: `Video creado por ${video.user.name}`,
+              year: 2024,
+              duration: `${durationMinutes} min`,
+              rating: parseFloat((4.0 + Math.random() * 1).toFixed(1)),
+              genre: getGenreFromQuery(query),
+              image: video.video_pictures[0]?.picture || video.image,
+              videoUrl: hdVideo?.link || "",
+            };
+          }
+        );
+
+        setMovies(transformedMovies);
+        setFilteredMovies(transformedMovies);
+      } else {
+        setError("No se encontraron videos");
+        setMovies([]);
+        setFilteredMovies([]);
+      }
+    } catch (error) {
+      console.error("Error al cargar videos:", error);
+      setError("Error al cargar los videos. Intenta de nuevo.");
       setMovies([]);
       setFilteredMovies([]);
+    } finally {
+      setLoading(false);
     }
-  } catch (error: any) {
-    console.error("Error al cargar videos:", error);
-    setError("Error al cargar los videos. Intenta de nuevo.");
-    setMovies([]);
-    setFilteredMovies([]);
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   const getGenreFromQuery = (query: string): string => {
     for (const [genre, searchQuery] of Object.entries(genreQueries)) {
-      if (searchQuery === query) {
-        return genre;
-      }
+      if (searchQuery === query) return genre;
     }
     return "Todos";
   };
 
   const filterMovies = () => {
     if (showFavorites) {
-      let filtered = favorites;
-
-      if (selectedGenre !== "Todos") {
-        filtered = filtered.filter(movie => movie.genre === selectedGenre);
-      }
-
-      if (searchTerm) {
-        filtered = filtered.filter(movie =>
-          movie.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          movie.description.toLowerCase().includes(searchTerm.toLowerCase())
-        );
-      }
-
-      setFilteredMovies(filtered);
+      const favMapped = favorites.map((fav) => ({
+        id: fav.pexelsId || fav.movieId!,
+        title: fav.title,
+        description: "Película favorita",
+        year: 2024,
+        duration: "Desconocido",
+        rating: 5,
+        genre: "Favorito",
+        image: fav.thumbnail,
+        videoUrl: "",
+      }));
+      setFilteredMovies(favMapped);
     } else {
       let filtered = movies;
-
-      if (selectedGenre !== "Todos") {
-        filtered = filtered.filter(movie => movie.genre === selectedGenre);
-      }
-
-      if (searchTerm) {
-        filtered = filtered.filter(movie =>
-          movie.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          movie.description.toLowerCase().includes(searchTerm.toLowerCase())
+      if (selectedGenre !== "Todos")
+        filtered = filtered.filter((m) => m.genre === selectedGenre);
+      if (searchTerm)
+        filtered = filtered.filter(
+          (m) =>
+            m.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            m.description.toLowerCase().includes(searchTerm.toLowerCase())
         );
-      }
-
       setFilteredMovies(filtered);
     }
   };
@@ -217,9 +218,7 @@ const Movies = () => {
 
   const handleSearch = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (searchTerm.trim() && !showFavorites) {
-      fetchMovies(searchTerm);
-    }
+    if (searchTerm.trim() && !showFavorites) fetchMovies(searchTerm);
   };
 
   const handlePlayVideo = (videoUrl: string) => {
@@ -231,23 +230,37 @@ const Movies = () => {
   };
 
   const isFavorite = (movieId: number): boolean => {
-    return favorites.some(fav => fav.id === movieId);
+    return favorites.some(
+      (fav) => fav.pexelsId === movieId || fav.movieId === movieId
+    );
   };
 
-  const toggleFavorite = (movie: Movie) => {
-    let newFavorites: Movie[];
-    
-    if (isFavorite(movie.id)) {
-      newFavorites = favorites.filter(fav => fav.id !== movie.id);
-    } else {
-      newFavorites = [...favorites, movie];
-    }
-    
-    setFavorites(newFavorites);
-    localStorage.setItem("movieFavorites", JSON.stringify(newFavorites));
-    
-    if (showFavorites) {
-      filterMovies();
+  const toggleFavorite = async (movie: Movie) => {
+    try {
+      if (isFavorite(movie.id)) {
+        // Quitar favorito
+        await fetch(
+          `${API_URL}/favorites/${userId}?pexelsId=${movie.id}`,
+          { method: "DELETE" }
+        );
+        setFavorites(favorites.filter((fav) => fav.pexelsId !== movie.id));
+      } else {
+        // Agregar favorito
+        const res = await fetch(`${API_URL}/favorites`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            userId,
+            pexelsId: movie.id,
+            title: movie.title,
+            thumbnail: movie.image,
+          }),
+        });
+        const data = await res.json();
+        setFavorites([...favorites, data]);
+      }
+    } catch (error) {
+      console.error("Error actualizando favoritos:", error);
     }
   };
 
@@ -283,17 +296,17 @@ const Movies = () => {
           <a href="/#/about">Sobre Nosotros</a>
         </nav>
         <div className="auth-buttons">
-          <button 
-            className={`favorites-btn ${showFavorites ? 'active' : ''}`}
+          <button
+            className={`favorites-btn ${showFavorites ? "active" : ""}`}
             onClick={toggleShowFavorites}
           >
-            <FaHeart /> 
+            <FaHeart />
             Favoritos ({favorites.length})
           </button>
-          
+
           {isLoggedIn ? (
             <div className="user-menu">
-              <button 
+              <button
                 className="user-button"
                 onClick={() => setShowDropdown(!showDropdown)}
               >
@@ -326,10 +339,10 @@ const Movies = () => {
         <div className="movies-hero">
           <h1>{showFavorites ? "Mis Favoritos" : "Buscar películas"}</h1>
           <p>
-            {showFavorites 
-              ? `Tienes ${favorites.length} película${favorites.length !== 1 ? 's' : ''} en favoritos`
-              : "Explora nuestra colección de películas increíbles"
-            }
+            {showFavorites
+              ? `Tienes ${favorites.length} película${favorites.length !== 1 ? "s" : ""
+                } en favoritos`
+              : "Explora nuestra colección de películas increíbles"}
           </p>
         </div>
 
@@ -338,12 +351,20 @@ const Movies = () => {
             <FaSearch className="search-icon" />
             <input
               type="text"
-              placeholder={showFavorites ? "Buscar en favoritos..." : "Buscar películas por título o descripción..."}
+              placeholder={
+                showFavorites
+                  ? "Buscar en favoritos..."
+                  : "Buscar películas por título o descripción..."
+              }
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
             {!showFavorites && (
-              <button type="submit" className="search-button" disabled={loading}>
+              <button
+                type="submit"
+                className="search-button"
+                disabled={loading}
+              >
                 {loading ? "Buscando..." : "Buscar"}
               </button>
             )}
@@ -380,13 +401,17 @@ const Movies = () => {
             <div key={movie.id} className="movie-card">
               <div className="movie-image">
                 <img src={movie.image} alt={movie.title} />
-                <div className="movie-overlay" onClick={() => handlePlayVideo(movie.videoUrl)}>
+                <div
+                  className="movie-overlay"
+                  onClick={() => handlePlayVideo(movie.videoUrl)}
+                >
                   <button className="play-btn">
                     <FaPlay />
                   </button>
                 </div>
-                <button 
-                  className={`favorite-btn ${isFavorite(movie.id) ? 'is-favorite' : ''}`}
+                <button
+                  className={`favorite-btn ${isFavorite(movie.id) ? "is-favorite" : ""
+                    }`}
                   onClick={(e) => {
                     e.stopPropagation();
                     toggleFavorite(movie);
@@ -416,10 +441,9 @@ const Movies = () => {
         {filteredMovies.length === 0 && !loading && !error && (
           <div className="no-results">
             <p>
-              {showFavorites 
+              {showFavorites
                 ? "No tienes películas en favoritos aún. ¡Agrega algunas!"
-                : "No se encontraron películas que coincidan con tus criterios."
-              }
+                : "No se encontraron películas que coincidan con tus criterios."}
             </p>
           </div>
         )}
@@ -427,7 +451,10 @@ const Movies = () => {
 
       {selectedVideo && (
         <div className="video-modal" onClick={handleCloseVideo}>
-          <div className="video-modal-content" onClick={(e) => e.stopPropagation()}>
+          <div
+            className="video-modal-content"
+            onClick={(e) => e.stopPropagation()}
+          >
             <button className="close-button" onClick={handleCloseVideo}>
               ✕
             </button>
